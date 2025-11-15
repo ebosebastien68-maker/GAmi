@@ -1,0 +1,14 @@
+name: dart_web_project
+description: Un petit projet Dart Web lancé sur Termux.
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  # Aucune dépendance obligatoire pour un projet web simple
+  # Tu peux en ajouter selon tes besoins
+
+dev_dependencies:
+  # Nécessaire uniquement si tu veux utiliser webdev pour un serveur local
+  webdev: ^3.0.0
