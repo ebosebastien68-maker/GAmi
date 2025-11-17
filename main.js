@@ -1,7 +1,7 @@
-import Welcome from './components/Welcome.js';
+import App from './App.js'; // Le “cerveau” qui gère tous les composants
 
 // Récupère le container principal
 const app = document.getElementById('app');
 
-// Affiche le composant Welcome
-app.appendChild(Welcome());
+// Monte l'application
+App(app);
