@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                      // Code compilé en JS moderne
+    "module": "ESNext",                      // Pour utiliser import/export
+    "moduleResolution": "Node",              
+    "outDir": "dist",                        // Dossier compilé
+    "rootDir": "src",                        // Dossier source
+    "strict": true,                          // Mode strict TS
+    "esModuleInterop": true,                 
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,                    
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
