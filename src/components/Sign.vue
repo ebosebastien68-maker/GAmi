@@ -1,78 +1,168 @@
-import React, { useEffect, useRef, useState } from 'react';
+<template>
+  <div class="game-container">
+    <div ref="gameCanvas" class="canvas-container"></div>
+    
+    <!-- Écran de démarrage -->
+    <div v-if="!gameStarted && !gameOver" class="overlay">
+      <div class="menu-box">
+        <h1 class="title">Jeu de Voiture 3D</h1>
+        <p class="instructions">
+          Utilisez les flèches ← → ou les boutons pour éviter les voitures
+        </p>
+        <button @click="startGame" class="btn-start">
+          Démarrer
+        </button>
+      </div>
+    </div>
+
+    <!-- Interface de jeu -->
+    <div v-if="gameStarted" class="game-ui">
+      <div class="score-display">
+        Score: {{ score }}
+      </div>
+
+      <div class="controls">
+        <button @click="moveLeft" class="btn-control">
+          ←
+        </button>
+        <button @click="moveRight" class="btn-control">
+          →
+        </button>
+      </div>
+    </div>
+
+    <!-- Écran Game Over -->
+    <div v-if="gameOver" class="overlay">
+      <div class="menu-box">
+        <h2 class="game-over-title">Game Over!</h2>
+        <p class="final-score">Score Final: {{ score }}</p>
+        <button @click="resetGame" class="btn-start">
+          Rejouer
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
 import * as THREE from 'three';
 
-export default function Sign() {
-  const mountRef = useRef(null);
-  const [score, setScore] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
-  const gameStateRef = useRef({
-    playerCar: null,
-    enemyCars: [],
-    currentLane: 1,
-    speed: 0.1,
-    score: 0,
-    isGameOver: false
-  });
+export default {
+  name: 'Sign',
+  data() {
+    return {
+      score: 0,
+      gameOver: false,
+      gameStarted: false,
+      scene: null,
+      camera: null,
+      renderer: null,
+      playerCar: null,
+      enemyCars: [],
+      currentLane: 1,
+      speed: 0.1,
+      animationId: null,
+      spawnInterval: null
+    };
+  },
+  methods: {
+    startGame() {
+      this.gameStarted = true;
+      this.gameOver = false;
+      this.score = 0;
+      this.$nextTick(() => {
+        this.initGame();
+      });
+    },
 
-  useEffect(() => {
-    if (!mountRef.current || !gameStarted) return;
+    resetGame() {
+      this.cleanup();
+      this.gameOver = false;
+      this.gameStarted = false;
+      this.score = 0;
+      this.enemyCars = [];
+      this.currentLane = 1;
+      this.speed = 0.1;
+    },
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.Fog(0x87CEEB, 10, 50);
+    initGame() {
+      // Configuration de la scène
+      this.scene = new THREE.Scene();
+      this.scene.background = new THREE.Color(0x87CEEB);
+      this.scene.fog = new THREE.Fog(0x87CEEB, 10, 50);
 
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(0, 5, 8);
-    camera.lookAt(0, 0, -5);
+      // Caméra
+      this.camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      this.camera.position.set(0, 5, 8);
+      this.camera.lookAt(0, 0, -5);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    mountRef.current.appendChild(renderer.domElement);
+      // Renderer
+      this.renderer = new THREE.WebGLRenderer({ antialias: true });
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.shadowMap.enabled = true;
+      this.$refs.gameCanvas.appendChild(this.renderer.domElement);
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
+      // Lumières
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      this.scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 10, 5);
-    directionalLight.castShadow = true;
-    scene.add(directionalLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(5, 10, 5);
+      directionalLight.castShadow = true;
+      this.scene.add(directionalLight);
 
-    // Road
-    const roadGeometry = new THREE.PlaneGeometry(9, 100);
-    const roadMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
-    const road = new THREE.Mesh(roadGeometry, roadMaterial);
-    road.rotation.x = -Math.PI / 2;
-    road.position.z = -25;
-    road.receiveShadow = true;
-    scene.add(road);
+      // Route
+      const roadGeometry = new THREE.PlaneGeometry(9, 100);
+      const roadMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+      const road = new THREE.Mesh(roadGeometry, roadMaterial);
+      road.rotation.x = -Math.PI / 2;
+      road.position.z = -25;
+      road.receiveShadow = true;
+      this.scene.add(road);
 
-    // Road lines
-    for (let i = 0; i < 20; i++) {
-      const lineGeometry = new THREE.BoxGeometry(0.2, 0.1, 2);
-      const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-      
-      const line1 = new THREE.Mesh(lineGeometry, lineMaterial);
-      line1.position.set(-1.5, 0.05, -5 * i);
-      scene.add(line1);
-      
-      const line2 = new THREE.Mesh(lineGeometry, lineMaterial);
-      line2.position.set(1.5, 0.05, -5 * i);
-      scene.add(line2);
-    }
+      // Lignes de route
+      for (let i = 0; i < 20; i++) {
+        const lineGeometry = new THREE.BoxGeometry(0.2, 0.1, 2);
+        const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+        
+        const line1 = new THREE.Mesh(lineGeometry, lineMaterial);
+        line1.position.set(-1.5, 0.05, -5 * i);
+        this.scene.add(line1);
+        
+        const line2 = new THREE.Mesh(lineGeometry, lineMaterial);
+        line2.position.set(1.5, 0.05, -5 * i);
+        this.scene.add(line2);
+      }
 
-    // Player car
-    const createCar = (color) => {
+      // Voiture du joueur
+      this.playerCar = this.createCar(0xFF0000);
+      this.playerCar.position.set(0, 0, 5);
+      this.scene.add(this.playerCar);
+
+      // Événements clavier
+      window.addEventListener('keydown', this.handleKeyDown);
+      window.addEventListener('resize', this.handleResize);
+
+      // Spawn des voitures ennemies
+      this.spawnInterval = setInterval(() => {
+        if (!this.gameOver) {
+          this.spawnEnemyCar();
+        }
+      }, 2000);
+
+      // Démarrer l'animation
+      this.animate();
+    },
+
+    createCar(color) {
       const carGroup = new THREE.Group();
       
+      // Corps
       const bodyGeometry = new THREE.BoxGeometry(1.2, 0.6, 2);
       const bodyMaterial = new THREE.MeshLambertMaterial({ color });
       const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
@@ -80,6 +170,7 @@ export default function Sign() {
       body.castShadow = true;
       carGroup.add(body);
       
+      // Cabine
       const cabinGeometry = new THREE.BoxGeometry(1, 0.5, 1);
       const cabinMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
       const cabin = new THREE.Mesh(cabinGeometry, cabinMaterial);
@@ -87,6 +178,7 @@ export default function Sign() {
       cabin.castShadow = true;
       carGroup.add(cabin);
       
+      // Roues
       const wheelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
       const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
       
@@ -106,20 +198,12 @@ export default function Sign() {
       });
       
       return carGroup;
-    };
+    },
 
-    const playerCar = createCar(0xFF0000);
-    playerCar.position.set(0, 0, 5);
-    scene.add(playerCar);
-    gameStateRef.current.playerCar = playerCar;
-
-    // Enemy cars
-    const spawnEnemyCar = () => {
-      if (gameStateRef.current.isGameOver) return;
-      
+    spawnEnemyCar() {
       const lanes = [-3, 0, 3];
       const availableLanes = lanes.filter(lane => {
-        const hasCarInLane = gameStateRef.current.enemyCars.some(
+        const hasCarInLane = this.enemyCars.some(
           car => Math.abs(car.position.x - lane) < 1 && car.position.z > -10
         );
         return !hasCarInLane;
@@ -131,262 +215,218 @@ export default function Sign() {
       const colors = [0x0000FF, 0x00FF00, 0xFFFF00, 0xFF00FF, 0x00FFFF];
       const color = colors[Math.floor(Math.random() * colors.length)];
       
-      const enemyCar = createCar(color);
+      const enemyCar = this.createCar(color);
       enemyCar.position.set(lane, 0, -30);
       enemyCar.rotation.y = Math.PI;
-      scene.add(enemyCar);
-      gameStateRef.current.enemyCars.push(enemyCar);
-    };
+      this.scene.add(enemyCar);
+      this.enemyCars.push(enemyCar);
+    },
 
-    // Spawn initial cars
-    const spawnInterval = setInterval(() => {
-      if (!gameStateRef.current.isGameOver) {
-        spawnEnemyCar();
-      }
-    }, 2000);
-
-    // Keyboard controls
-    const handleKeyDown = (e) => {
-      if (gameStateRef.current.isGameOver) return;
-      
+    moveLeft() {
+      if (this.gameOver || !this.gameStarted) return;
       const lanes = [-3, 0, 3];
-      const currentLane = gameStateRef.current.currentLane;
-      
-      if (e.key === 'ArrowLeft' && currentLane > 0) {
-        gameStateRef.current.currentLane--;
-        gameStateRef.current.playerCar.position.x = lanes[gameStateRef.current.currentLane];
-      } else if (e.key === 'ArrowRight' && currentLane < 2) {
-        gameStateRef.current.currentLane++;
-        gameStateRef.current.playerCar.position.x = lanes[gameStateRef.current.currentLane];
+      if (this.currentLane > 0) {
+        this.currentLane--;
+        this.playerCar.position.x = lanes[this.currentLane];
       }
-    };
+    },
 
-    window.addEventListener('keydown', handleKeyDown);
+    moveRight() {
+      if (this.gameOver || !this.gameStarted) return;
+      const lanes = [-3, 0, 3];
+      if (this.currentLane < 2) {
+        this.currentLane++;
+        this.playerCar.position.x = lanes[this.currentLane];
+      }
+    },
 
-    // Collision detection
-    const checkCollision = () => {
-      const playerPos = gameStateRef.current.playerCar.position;
+    handleKeyDown(e) {
+      if (e.key === 'ArrowLeft') {
+        this.moveLeft();
+      } else if (e.key === 'ArrowRight') {
+        this.moveRight();
+      }
+    },
+
+    handleResize() {
+      if (this.camera && this.renderer) {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    },
+
+    checkCollision() {
+      const playerPos = this.playerCar.position;
       
-      for (let enemyCar of gameStateRef.current.enemyCars) {
+      for (let enemyCar of this.enemyCars) {
         const distance = playerPos.distanceTo(enemyCar.position);
         if (distance < 2) {
-          gameStateRef.current.isGameOver = true;
-          setGameOver(true);
+          this.gameOver = true;
           return true;
         }
       }
       return false;
-    };
+    },
 
-    // Animation loop
-    const animate = () => {
-      if (gameStateRef.current.isGameOver) return;
+    animate() {
+      if (this.gameOver) return;
       
-      requestAnimationFrame(animate);
+      this.animationId = requestAnimationFrame(this.animate);
 
-      // Move enemy cars
-      gameStateRef.current.enemyCars.forEach((car, index) => {
-        car.position.z += gameStateRef.current.speed;
+      // Déplacer les voitures ennemies
+      for (let i = this.enemyCars.length - 1; i >= 0; i--) {
+        const car = this.enemyCars[i];
+        car.position.z += this.speed;
         
         if (car.position.z > 10) {
-          scene.remove(car);
-          gameStateRef.current.enemyCars.splice(index, 1);
-          gameStateRef.current.score += 10;
-          setScore(gameStateRef.current.score);
-          gameStateRef.current.speed = Math.min(0.2, 0.1 + gameStateRef.current.score * 0.0001);
+          this.scene.remove(car);
+          this.enemyCars.splice(i, 1);
+          this.score += 10;
+          this.speed = Math.min(0.2, 0.1 + this.score * 0.0001);
         }
-      });
-
-      checkCollision();
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    // Handle resize
-    const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', handleResize);
-      clearInterval(spawnInterval);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
       }
-      renderer.dispose();
-    };
-  }, [gameStarted]);
 
-  const handleMoveLeft = () => {
-    if (gameStateRef.current.isGameOver || !gameStarted) return;
-    const lanes = [-3, 0, 3];
-    if (gameStateRef.current.currentLane > 0) {
-      gameStateRef.current.currentLane--;
-      gameStateRef.current.playerCar.position.x = lanes[gameStateRef.current.currentLane];
-    }
-  };
+      this.checkCollision();
+      this.renderer.render(this.scene, this.camera);
+    },
 
-  const handleMoveRight = () => {
-    if (gameStateRef.current.isGameOver || !gameStarted) return;
-    const lanes = [-3, 0, 3];
-    if (gameStateRef.current.currentLane < 2) {
-      gameStateRef.current.currentLane++;
-      gameStateRef.current.playerCar.position.x = lanes[gameStateRef.current.currentLane];
-    }
-  };
-
-  const resetGame = () => {
-    setGameOver(false);
-    setScore(0);
-    setGameStarted(false);
-    gameStateRef.current = {
-      playerCar: null,
-      enemyCars: [],
-      currentLane: 1,
-      speed: 0.1,
-      score: 0,
-      isGameOver: false
-    };
-  };
-
-  const startGame = () => {
-    setGameStarted(true);
-    setGameOver(false);
-    setScore(0);
-  };
-
-  return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+    cleanup() {
+      if (this.animationId) {
+        cancelAnimationFrame(this.animationId);
+      }
+      if (this.spawnInterval) {
+        clearInterval(this.spawnInterval);
+      }
+      window.removeEventListener('keydown', this.handleKeyDown);
+      window.removeEventListener('resize', this.handleResize);
       
-      {!gameStarted && !gameOver && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center',
-          color: 'white',
-          background: 'rgba(0,0,0,0.7)',
-          padding: '40px',
-          borderRadius: '10px'
-        }}>
-          <h1 style={{ fontSize: '48px', marginBottom: '20px' }}>Jeu de Voiture 3D</h1>
-          <p style={{ fontSize: '20px', marginBottom: '30px' }}>
-            Utilisez les flèches ← → ou les boutons pour éviter les voitures
-          </p>
-          <button
-            onClick={startGame}
-            style={{
-              fontSize: '24px',
-              padding: '15px 40px',
-              background: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            Démarrer
-          </button>
-        </div>
-      )}
+      if (this.renderer && this.$refs.gameCanvas) {
+        this.$refs.gameCanvas.innerHTML = '';
+        this.renderer.dispose();
+      }
+    }
+  },
 
-      {gameStarted && (
-        <>
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            color: 'white',
-            fontSize: '32px',
-            fontWeight: 'bold',
-            background: 'rgba(0,0,0,0.5)',
-            padding: '10px 30px',
-            borderRadius: '10px'
-          }}>
-            Score: {score}
-          </div>
+  beforeUnmount() {
+    this.cleanup();
+  }
+};
+</script>
 
-          <div style={{
-            position: 'absolute',
-            bottom: '30px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: '20px'
-          }}>
-            <button
-              onClick={handleMoveLeft}
-              style={{
-                width: '80px',
-                height: '80px',
-                fontSize: '32px',
-                background: 'rgba(255,255,255,0.8)',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              ←
-            </button>
-            <button
-              onClick={handleMoveRight}
-              style={{
-                width: '80px',
-                height: '80px',
-                fontSize: '32px',
-                background: 'rgba(255,255,255,0.8)',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              →
-            </button>
-          </div>
-        </>
-      )}
-
-      {gameOver && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center',
-          color: 'white',
-          background: 'rgba(0,0,0,0.8)',
-          padding: '40px',
-          borderRadius: '10px'
-        }}>
-          <h2 style={{ fontSize: '48px', marginBottom: '20px' }}>Game Over!</h2>
-          <p style={{ fontSize: '32px', marginBottom: '30px' }}>Score Final: {score}</p>
-          <button
-            onClick={resetGame}
-            style={{
-              fontSize: '24px',
-              padding: '15px 40px',
-              background: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            Rejouer
-          </button>
-        </div>
-      )}
-    </div>
-  );
+<style scoped>
+.game-container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
 }
+
+.canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.menu-box {
+  background: rgba(0, 0, 0, 0.8);
+  padding: 40px;
+  border-radius: 10px;
+  color: white;
+}
+
+.title {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.instructions {
+  font-size: 20px;
+  margin-bottom: 30px;
+}
+
+.btn-start {
+  font-size: 24px;
+  padding: 15px 40px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.btn-start:hover {
+  background: #45a049;
+}
+
+.game-ui {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.score-display {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 32px;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 10px 30px;
+  border-radius: 10px;
+}
+
+.controls {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  pointer-events: auto;
+}
+
+.btn-control {
+  width: 80px;
+  height: 80px;
+  font-size: 32px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.btn-control:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+.btn-control:active {
+  transform: scale(0.95);
+}
+
+.game-over-title {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.final-score {
+  font-size: 32px;
+  margin-bottom: 30px;
+}
+</style>
