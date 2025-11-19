@@ -71,8 +71,9 @@ export default {
       obstacles: [],
       currentLane: 1,
       lanes: [-3, 0, 3],
-      gameSpeed: 0.1,
-      animationId: null
+      gameSpeed: 0.15,
+      animationId: null,
+      threeLoaded: false
     }
   },
   mounted() {
@@ -83,45 +84,68 @@ export default {
   },
   methods: {
     loadThreeJS() {
+      if (window.THREE) {
+        this.threeLoaded = true
+        this.initThree()
+        return
+      }
+      
       const script = document.createElement('script')
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
       script.onload = () => {
+        this.threeLoaded = true
         this.initThree()
+      }
+      script.onerror = () => {
+        console.error('Erreur de chargement de Three.js')
       }
       document.head.appendChild(script)
     },
     
     initThree() {
+      if (!this.$refs.gameCanvas) {
+        setTimeout(() => this.initThree(), 100)
+        return
+      }
+
       const THREE = window.THREE
       
       // Scène
       this.scene = new THREE.Scene()
-      this.scene.background = new THREE.Color(0xf5e6d3)
-      this.scene.fog = new THREE.Fog(0xf5e6d3, 10, 50)
+      this.scene.background = new THREE.Color(0x87ceeb)
+      this.scene.fog = new THREE.Fog(0x87ceeb, 20, 60)
       
       // Caméra
       this.camera = new THREE.PerspectiveCamera(
-        75,
+        60,
         window.innerWidth / window.innerHeight,
         0.1,
         1000
       )
-      this.camera.position.set(0, 8, 8)
-      this.camera.lookAt(0, 0, -10)
+      this.camera.position.set(0, 10, 12)
+      this.camera.lookAt(0, 0, 0)
       
       // Renderer
       this.renderer = new THREE.WebGLRenderer({ antialias: true })
       this.renderer.setSize(window.innerWidth, window.innerHeight)
       this.renderer.shadowMap.enabled = true
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      this.$refs.gameCanvas.innerHTML = ''
       this.$refs.gameCanvas.appendChild(this.renderer.domElement)
       
       // Lumières
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7)
       this.scene.add(ambientLight)
       
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8)
-      dirLight.position.set(5, 10, 5)
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9)
+      dirLight.position.set(10, 20, 10)
       dirLight.castShadow = true
+      dirLight.shadow.camera.left = -20
+      dirLight.shadow.camera.right = 20
+      dirLight.shadow.camera.top = 20
+      dirLight.shadow.camera.bottom = -20
+      dirLight.shadow.mapSize.width = 2048
+      dirLight.shadow.mapSize.height = 2048
       this.scene.add(dirLight)
       
       // Route
@@ -133,17 +157,41 @@ export default {
       // Gestion du redimensionnement
       window.addEventListener('resize', this.onWindowResize)
       
-      // Rendu initial
+      // Animation continue
+      this.animate()
+    },
+    
+    animate() {
+      if (!this.renderer || !this.scene || !this.camera) return
+      
       this.renderer.render(this.scene, this.camera)
+      
+      if (this.gameStarted && !this.gameOver && !this.paused) {
+        this.updateGame()
+      }
+      
+      this.animationId = requestAnimationFrame(() => this.animate())
     },
     
     createRoad() {
       const THREE = window.THREE
       
-      // Route principale
-      const roadGeometry = new THREE.PlaneGeometry(10, 100)
+      // Sol/désert
+      const groundGeometry = new THREE.PlaneGeometry(50, 200)
+      const groundMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xd4a574,
+        roughness: 0.9
+      })
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial)
+      ground.rotation.x = -Math.PI / 2
+      ground.position.y = -0.1
+      ground.receiveShadow = true
+      this.scene.add(ground)
+      
+      // Route principale (gris foncé)
+      const roadGeometry = new THREE.PlaneGeometry(9, 200)
       const roadMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x4a4a4a,
+        color: 0x333333,
         roughness: 0.8
       })
       const road = new THREE.Mesh(roadGeometry, roadMaterial)
@@ -152,77 +200,103 @@ export default {
       road.receiveShadow = true
       this.scene.add(road)
       
-      // Lignes de séparation
-      for (let i = 0; i < 20; i++) {
-        const lineGeometry = new THREE.BoxGeometry(0.2, 0.1, 2)
+      // Lignes blanches de séparation
+      for (let i = -10; i < 30; i++) {
+        // Ligne gauche
+        const lineGeometry1 = new THREE.BoxGeometry(0.15, 0.05, 3)
         const lineMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0xffffff 
+          color: 0xffffff,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.3
         })
-        const line1 = new THREE.Mesh(lineGeometry, lineMaterial)
-        line1.position.set(-1.5, 0.05, -5 - i * 5)
+        const line1 = new THREE.Mesh(lineGeometry1, lineMaterial)
+        line1.position.set(-1.5, 0.05, i * 7)
         this.scene.add(line1)
         
-        const line2 = new THREE.Mesh(lineGeometry, lineMaterial)
-        line2.position.set(1.5, 0.05, -5 - i * 5)
+        // Ligne droite
+        const line2 = new THREE.Mesh(lineGeometry1, lineMaterial)
+        line2.position.set(1.5, 0.05, i * 7)
         this.scene.add(line2)
       }
       
-      // Bords de route (sable)
-      const sideGeometry = new THREE.PlaneGeometry(5, 100)
-      const sideMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xd4a574 
+      // Bordures de route
+      const borderGeometry = new THREE.BoxGeometry(0.3, 0.2, 200)
+      const borderMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffffff 
       })
       
-      const leftSide = new THREE.Mesh(sideGeometry, sideMaterial)
-      leftSide.rotation.x = -Math.PI / 2
-      leftSide.position.set(-7.5, 0, 0)
-      this.scene.add(leftSide)
+      const leftBorder = new THREE.Mesh(borderGeometry, borderMaterial)
+      leftBorder.position.set(-4.5, 0.1, 0)
+      leftBorder.castShadow = true
+      this.scene.add(leftBorder)
       
-      const rightSide = new THREE.Mesh(sideGeometry, sideMaterial)
-      rightSide.rotation.x = -Math.PI / 2
-      rightSide.position.set(7.5, 0, 0)
-      this.scene.add(rightSide)
+      const rightBorder = new THREE.Mesh(borderGeometry, borderMaterial)
+      rightBorder.position.set(4.5, 0.1, 0)
+      rightBorder.castShadow = true
+      this.scene.add(rightBorder)
     },
     
     createPlayerCar() {
       const THREE = window.THREE
       const carGroup = new THREE.Group()
       
-      // Corps de la voiture
-      const bodyGeometry = new THREE.BoxGeometry(1.5, 0.6, 2.5)
+      // Corps principal (rouge vif)
+      const bodyGeometry = new THREE.BoxGeometry(1.8, 0.7, 3)
       const bodyMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xe74c3c 
+        color: 0xff0000,
+        metalness: 0.6,
+        roughness: 0.4
       })
       const body = new THREE.Mesh(bodyGeometry, bodyMaterial)
-      body.position.y = 0.5
+      body.position.y = 0.6
       body.castShadow = true
       carGroup.add(body)
       
-      // Cabine
-      const cabinGeometry = new THREE.BoxGeometry(1.3, 0.5, 1.2)
+      // Cabine (vitre sombre)
+      const cabinGeometry = new THREE.BoxGeometry(1.6, 0.6, 1.5)
       const cabinMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x34495e 
+        color: 0x1a1a1a,
+        metalness: 0.8,
+        roughness: 0.2
       })
       const cabin = new THREE.Mesh(cabinGeometry, cabinMaterial)
-      cabin.position.y = 0.9
+      cabin.position.y = 1.1
       cabin.position.z = -0.3
       cabin.castShadow = true
       carGroup.add(cabin)
       
-      // Roues
-      const wheelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.3, 16)
-      const wheelMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x2c3e50 
+      // Phares avant
+      const lightGeometry = new THREE.SphereGeometry(0.15, 8, 8)
+      const lightMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffff00,
+        emissive: 0xffff00,
+        emissiveIntensity: 1
       })
       
-      const positions = [
-        [-0.8, 0.3, 0.8],
-        [0.8, 0.3, 0.8],
-        [-0.8, 0.3, -0.8],
-        [0.8, 0.3, -0.8]
+      const leftLight = new THREE.Mesh(lightGeometry, lightMaterial)
+      leftLight.position.set(-0.7, 0.5, 1.6)
+      carGroup.add(leftLight)
+      
+      const rightLight = new THREE.Mesh(lightGeometry, lightMaterial)
+      rightLight.position.set(0.7, 0.5, 1.6)
+      carGroup.add(rightLight)
+      
+      // Roues (noires)
+      const wheelGeometry = new THREE.CylinderGeometry(0.35, 0.35, 0.3, 16)
+      const wheelMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x1a1a1a,
+        metalness: 0.5,
+        roughness: 0.7
+      })
+      
+      const wheelPositions = [
+        [-0.9, 0.35, 1.2],
+        [0.9, 0.35, 1.2],
+        [-0.9, 0.35, -1.2],
+        [0.9, 0.35, -1.2]
       ]
       
-      positions.forEach(pos => {
+      wheelPositions.forEach(pos => {
         const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial)
         wheel.rotation.z = Math.PI / 2
         wheel.position.set(...pos)
@@ -230,7 +304,7 @@ export default {
         carGroup.add(wheel)
       })
       
-      carGroup.position.set(this.lanes[this.currentLane], 0, 3)
+      carGroup.position.set(this.lanes[this.currentLane], 0, 5)
       this.playerCar = carGroup
       this.scene.add(carGroup)
     },
@@ -239,61 +313,133 @@ export default {
       const THREE = window.THREE
       const carGroup = new THREE.Group()
       
-      // Couleurs aléatoires pour les obstacles
-      const colors = [0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0x1abc9c]
+      // Couleurs variées pour les obstacles
+      const colors = [0x0066ff, 0x00cc00, 0xff6600, 0xcc00cc, 0x00cccc, 0xffcc00]
       const color = colors[Math.floor(Math.random() * colors.length)]
       
-      const bodyGeometry = new THREE.BoxGeometry(1.5, 0.6, 2.5)
-      const bodyMaterial = new THREE.MeshStandardMaterial({ color })
+      // Corps
+      const bodyGeometry = new THREE.BoxGeometry(1.8, 0.7, 3)
+      const bodyMaterial = new THREE.MeshStandardMaterial({ 
+        color: color,
+        metalness: 0.5,
+        roughness: 0.5
+      })
       const body = new THREE.Mesh(bodyGeometry, bodyMaterial)
-      body.position.y = 0.5
+      body.position.y = 0.6
       body.castShadow = true
       carGroup.add(body)
       
-      const cabinGeometry = new THREE.BoxGeometry(1.3, 0.5, 1.2)
+      // Cabine
+      const cabinGeometry = new THREE.BoxGeometry(1.6, 0.6, 1.5)
       const cabinMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x34495e 
+        color: 0x2a2a2a,
+        metalness: 0.7,
+        roughness: 0.3
       })
       const cabin = new THREE.Mesh(cabinGeometry, cabinMaterial)
-      cabin.position.y = 0.9
+      cabin.position.y = 1.1
       cabin.position.z = 0.3
       cabin.castShadow = true
       carGroup.add(cabin)
       
-      // Choisir une voie disponible
+      // Roues
+      const wheelGeometry = new THREE.CylinderGeometry(0.35, 0.35, 0.3, 16)
+      const wheelMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x1a1a1a 
+      })
+      
+      const wheelPositions = [
+        [-0.9, 0.35, 1.2],
+        [0.9, 0.35, 1.2],
+        [-0.9, 0.35, -1.2],
+        [0.9, 0.35, -1.2]
+      ]
+      
+      wheelPositions.forEach(pos => {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial)
+        wheel.rotation.z = Math.PI / 2
+        wheel.position.set(...pos)
+        wheel.castShadow = true
+        carGroup.add(wheel)
+      })
+      
+      // Choisir une voie (éviter celle du joueur si possible)
       let availableLanes = [0, 1, 2]
       
-      // Retirer la voie du joueur
-      const playerLaneIndex = availableLanes.indexOf(this.currentLane)
-      if (playerLaneIndex > -1) {
-        availableLanes.splice(playerLaneIndex, 1)
+      // Si on peut éviter la voie du joueur, on le fait
+      if (this.obstacles.length === 0 || Math.random() > 0.3) {
+        const playerLaneIndex = this.currentLane
+        const filtered = availableLanes.filter(l => l !== playerLaneIndex)
+        if (filtered.length > 0) {
+          availableLanes = filtered
+        }
       }
       
       const laneIndex = availableLanes[Math.floor(Math.random() * availableLanes.length)]
-      carGroup.position.set(this.lanes[laneIndex], 0, -30)
+      carGroup.position.set(this.lanes[laneIndex], 0, -40)
+      carGroup.userData.lane = laneIndex
       
       this.scene.add(carGroup)
       this.obstacles.push(carGroup)
     },
     
     startGame() {
+      if (!this.threeLoaded || !this.playerCar) {
+        setTimeout(() => this.startGame(), 100)
+        return
+      }
+
       this.gameStarted = true
       this.gameOver = false
+      this.paused = false
       this.score = 0
-      this.gameSpeed = 0.1
+      this.gameSpeed = 0.15
       
-      // Écouter les touches du clavier
+      // Écouter les touches
       document.addEventListener('keydown', this.handleKeyPress)
       
-      // Démarrer la boucle de jeu
-      this.gameLoop()
-      
-      // Créer des obstacles
+      // Créer des obstacles régulièrement
       this.obstacleInterval = setInterval(() => {
-        if (!this.paused && !this.gameOver) {
+        if (!this.paused && !this.gameOver && this.gameStarted) {
           this.createObstacle()
         }
-      }, 1500)
+      }, 2000)
+    },
+    
+    updateGame() {
+      if (!this.playerCar) return
+      
+      // Déplacer et vérifier les obstacles
+      for (let i = this.obstacles.length - 1; i >= 0; i--) {
+        const obstacle = this.obstacles[i]
+        obstacle.position.z += this.gameSpeed
+        
+        // Vérifier collision
+        const distanceZ = Math.abs(obstacle.position.z - this.playerCar.position.z)
+        const distanceX = Math.abs(obstacle.position.x - this.playerCar.position.x)
+        
+        if (distanceZ < 2.5 && distanceX < 1.5) {
+          this.endGame()
+          return
+        }
+        
+        // Retirer les obstacles passés et augmenter le score
+        if (obstacle.position.z > 15) {
+          this.scene.remove(obstacle)
+          this.obstacles.splice(i, 1)
+          this.score += 10
+          
+          // Augmenter progressivement la vitesse
+          if (this.score % 50 === 0) {
+            this.gameSpeed += 0.01
+          }
+        }
+      }
+      
+      // Déplacement fluide de la voiture du joueur
+      const targetX = this.lanes[this.currentLane]
+      const diff = targetX - this.playerCar.position.x
+      this.playerCar.position.x += diff * 0.2
     },
     
     gameLoop() {
@@ -381,14 +527,28 @@ export default {
       
       // Réinitialiser la position du joueur
       this.currentLane = 1
-      this.playerCar.position.set(this.lanes[1], 0, 3)
+      if (this.playerCar) {
+        this.playerCar.position.set(this.lanes[1], 0, 5)
+      }
+      
+      // Réinitialiser les états
+      this.gameOver = false
+      this.paused = false
       
       // Redémarrer
       this.startGame()
     },
     
     goHome() {
-      this.$emit('navigate', 'Home')
+      // Pour Vue Router
+      if (this.$router) {
+        this.$router.push('/')
+      } else {
+        // Émettre un événement pour le parent
+        this.$emit('go-home')
+        // Ou recharger la page
+        window.location.href = '/'
+      }
     },
     
     onWindowResize() {
