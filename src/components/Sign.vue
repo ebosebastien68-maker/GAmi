@@ -45,8 +45,6 @@
 </template>
 
 <script>
-import * as THREE from 'three';
-
 export default {
   name: 'Sign',
   data() {
@@ -62,11 +60,26 @@ export default {
       currentLane: 1,
       speed: 0.1,
       animationId: null,
-      spawnInterval: null
+      spawnInterval: null,
+      THREE: null
     };
+  },
+  mounted() {
+    // Charger Three.js depuis CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    script.onload = () => {
+      this.THREE = window.THREE;
+      console.log('Three.js chargé avec succès');
+    };
+    document.head.appendChild(script);
   },
   methods: {
     startGame() {
+      if (!this.THREE) {
+        alert('Three.js est en cours de chargement, veuillez patienter...');
+        return;
+      }
       this.gameStarted = true;
       this.gameOver = false;
       this.score = 0;
@@ -86,6 +99,8 @@ export default {
     },
 
     initGame() {
+      const THREE = this.THREE;
+      
       // Configuration de la scène
       this.scene = new THREE.Scene();
       this.scene.background = new THREE.Color(0x87CEEB);
@@ -160,6 +175,7 @@ export default {
     },
 
     createCar(color) {
+      const THREE = this.THREE;
       const carGroup = new THREE.Group();
       
       // Corps
