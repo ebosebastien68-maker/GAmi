@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Élégance Coiffure - Port-Gentil, Gabon</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            color: #fff;
+        }
+
+        #threejs-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: -1;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem 5%;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #d4af37, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: rgba(212, 175, 55, 0.2);
+            color: #d4af37;
+        }
+
+        .section {
+            min-height: 100vh;
+            padding: 120px 5% 60px;
+            display: none;
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 2rem;
+        }
+
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #d4af37, #fff, #d4af37);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 2px 2px 20px rgba(212, 175, 55, 0.3);
+        }
+
+        h2 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: #d4af37;
+        }
+
+        .subtitle {
+            font-size: 1.5rem;
+            color: #e0e0e0;
+            max-width: 700px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #d4af37, #f4d03f);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(212, 175, 55, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 2px solid #fff;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .service-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .service-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+        }
+
+        .service-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .service-card h3 {
+            color: #d4af37;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .about-content {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 20px;
+            line-height: 1.8;
+        }
+
+        .about-content p {
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .contact-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .contact-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .contact-card h3 {
+            color: #d4af37;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .gallery-item {
+            height: 300px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            transition: all 0.3s;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            h2 { font-size: 2rem; }
+            .nav-links { display: none; }
+            .cta-buttons { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div id="threejs-bg"></div>
+    <div class="overlay"></div>
+
+    <nav>
+        <div class="logo">✨ Élégance Coiffure</div>
+        <ul class="nav-links">
+            <li><a href="#accueil" class="nav-link active">Accueil</a></li>
+            <li><a href="#services" class="nav-link">Services</a></li>
+            <li><a href="#galerie" class="nav-link">Galerie</a></li>
+            <li><a href="#apropos" class="nav-link">À Propos</a></li>
+            <li><a href="#contact" class="nav-link">Contact</a></li>
+        </ul>
+    </nav>
+
+    <section id="accueil" class="section active hero">
+        <h1>Élégance Coiffure</h1>
+        <p class="subtitle">Votre beauté sublimée à Port-Gentil, Gabon</p>
+        <p style="font-size: 1.2rem; color: #d4af37;">📍 Situé à Gabon, Port-Gentil</p>
+        <div class="cta-buttons">
+            <a href="tel:+24100000000" class="btn btn-primary">📞 Appelez-nous</a>
+            <a href="https://wa.me/24100000000" class="btn btn-secondary">💬 WhatsApp</a>
+        </div>
+    </section>
+
+    <section id="services" class="section">
+        <h2>Nos Services</h2>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon">💇‍♀️</div>
+                <h3>Coupe & Styling</h3>
+                <p>Coupes modernes et personnalisées pour sublimer votre visage</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">🎨</div>
+                <h3>Coloration</h3>
+                <p>Colorations professionnelles et techniques de balayage</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">✨</div>
+                <h3>Soins Capillaires</h3>
+                <p>Traitements pour revitaliser et nourrir vos cheveux</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">👰</div>
+                <h3>Coiffure Mariage</h3>
+                <p>Créations uniques pour votre jour spécial</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">🌊</div>
+                <h3>Lissage</h3>
+                <p>Lissages brésiliens et techniques de défrisage</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">💆‍♀️</div>
+                <h3>Extensions</h3>
+                <p>Poses d'extensions naturelles et tissages</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="galerie" class="section">
+        <h2>Galerie</h2>
+        <div class="gallery-grid">
+            <div class="gallery-item">💇‍♀️</div>
+            <div class="gallery-item">✨</div>
+            <div class="gallery-item">🎨</div>
+            <div class="gallery-item">👰</div>
+            <div class="gallery-item">🌺</div>
+            <div class="gallery-item">💫</div>
+        </div>
+    </section>
+
+    <section id="apropos" class="section">
+        <h2>À Propos</h2>
+        <div class="about-content">
+            <p>Bienvenue chez <strong>Élégance Coiffure</strong>, votre salon de coiffure premium à Port-Gentil, Gabon. Depuis notre ouverture, nous nous sommes engagés à offrir une expérience beauté exceptionnelle à toutes nos clientes.</p>
+            <p>Notre équipe de coiffeuses professionnelles et passionnées maîtrise les dernières tendances et techniques de coiffure. Nous utilisons uniquement des produits de haute qualité pour garantir la santé et la beauté de vos cheveux.</p>
+            <p>Dans notre salon moderne et élégant, vous trouverez une atmosphère chaleureuse et relaxante où vous pourrez vous détendre tout en prenant soin de vous.</p>
+            <p><strong>Notre philosophie :</strong> Révéler la beauté unique de chaque femme avec professionnalisme, créativité et écoute.</p>
+        </div>
+    </section>
+
+    <section id="contact" class="section">
+        <h2>Contactez-nous</h2>
+        <div class="contact-info">
+            <div class="contact-card">
+                <h3>📍 Adresse</h3>
+                <p>Gabon, Port-Gentil<br>Quartier Gabon</p>
+            </div>
+            <div class="contact-card">
+                <h3>📞 Téléphone</h3>
+                <p>+241 00 00 00 00</p>
+                <a href="tel:+24100000000" class="btn btn-primary" style="margin-top: 1rem;">Appeler maintenant</a>
+            </div>
+            <div class="contact-card">
+                <h3>💬 WhatsApp</h3>
+                <p>Réservez via WhatsApp</p>
+                <a href="https://wa.me/24100000000" class="btn btn-primary" style="margin-top: 1rem;">Envoyer un message</a>
+            </div>
+            <div class="contact-card">
+                <h3>🕐 Horaires</h3>
+                <p>Lundi - Samedi: 8h00 - 19h00<br>Dimanche: Sur rendez-vous</p>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Three.js Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('threejs-bg').appendChild(renderer.domElement);
+
+        // Create two planes for images
+        const textureLoader = new THREE.TextureLoader();
+        const geometry = new THREE.PlaneGeometry(5, 5);
+        
+        const texture1 = textureLoader.load('coi.png');
+        const texture2 = textureLoader.load('coi2.png');
+        
+        const material1 = new THREE.MeshBasicMaterial({ map: texture1, transparent: true, opacity: 0.6 });
+        const material2 = new THREE.MeshBasicMaterial({ map: texture2, transparent: true, opacity: 0.4 });
+        
+        const plane1 = new THREE.Mesh(geometry, material1);
+        const plane2 = new THREE.Mesh(geometry, material2);
+        
+        plane1.position.set(-2, 0, 0);
+        plane2.position.set(2, 0, 0);
+        
+        scene.add(plane1);
+        scene.add(plane2);
+        
+        camera.position.z = 5;
+
+        // Animation variables
+        let targetRotation1 = { x: 0, y: 0 };
+        let targetRotation2 = { x: 0, y: 0 };
+        let currentSection = 'accueil';
+
+        // Navigation
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.section');
+
+        function updateAnimations(sectionId) {
+            currentSection = sectionId;
+            switch(sectionId) {
+                case 'accueil':
+                    targetRotation1 = { x: 0, y: 0 };
+                    targetRotation2 = { x: 0, y: 0 };
+                    break;
+                case 'services':
+                    targetRotation1 = { x: 0.5, y: 0.5 };
+                    targetRotation2 = { x: -0.5, y: -0.5 };
+                    break;
+                case 'galerie':
+                    targetRotation1 = { x: 0.3, y: -0.8 };
+                    targetRotation2 = { x: -0.3, y: 0.8 };
+                    break;
+                case 'apropos':
+                    targetRotation1 = { x: -0.4, y: 0.6 };
+                    targetRotation2 = { x: 0.4, y: -0.6 };
+                    break;
+                case 'contact':
+                    targetRotation1 = { x: 0.7, y: -0.3 };
+                    targetRotation2 = { x: -0.7, y: 0.3 };
+                    break;
+            }
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href').substring(1);
+                
+                navLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                
+                sections.forEach(s => s.classList.remove('active'));
+                document.getElementById(targetId).classList.add('active');
+                
+                updateAnimations(targetId);
+            });
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Smooth rotation transitions
+            plane1.rotation.x += (targetRotation1.x - plane1.rotation.x) * 0.05;
+            plane1.rotation.y += (targetRotation1.y - plane1.rotation.y) * 0.05;
+            plane2.rotation.x += (targetRotation2.x - plane2.rotation.x) * 0.05;
+            plane2.rotation.y += (targetRotation2.y - plane2.rotation.y) * 0.05;
+            
+            // Continuous subtle animation
+            plane1.position.y = Math.sin(Date.now() * 0.001) * 0.2;
+            plane2.position.y = Math.cos(Date.now() * 0.001) * 0.2;
+            
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Responsive
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+      </html>
